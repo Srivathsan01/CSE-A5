@@ -6,10 +6,9 @@ int main(int argc, char * argv[])
 {
     int pid;//, x = 0;
     if((pid = fork())==0){
-        // printf(1,"run child running....\n");
-        for(int i=0; i<2000; i++)
+        // printf(1,"Vanakkam da maapla , child process la irundhu....\n");
+        for(int i=0; i<10000; i++)
         {
-            // x = (x * i)%1024;
             printf(1, " ");
             printf(1, "\b");
         }
@@ -21,7 +20,6 @@ int main(int argc, char * argv[])
     // printf(1,"run parent runnning....\n");
     for(int i=0; i<10000; i++)
     {
-        // x = (x * i)%1024;
         printf(1, " ");
         printf(1, "\b");
     }

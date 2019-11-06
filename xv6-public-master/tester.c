@@ -17,7 +17,7 @@ main(int argc, char *argv[])
 
     int pid = fork();
     if(pid == 0) {
-      exec(argv[1], argv);
+      exec(argv[1], argv+1);
       exit();      
     }
     else{

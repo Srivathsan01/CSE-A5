@@ -52,6 +52,8 @@ struct proc {
   int ctime;
   int etime;
   int rtime;
+  int Prio;
+
 };
 
 // Process memory is laid out contiguously, low addresses first:

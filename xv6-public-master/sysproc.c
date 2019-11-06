@@ -100,3 +100,12 @@ sys_waitx (void)
     return -1;
   return waitx(wtime,rtime);
 }
+
+int 
+sys_setpriority (void)
+{
+  int P;
+  if(argptr(0, (char**)&P, sizeof(int))<0)
+    return -1;
+  return setpriority(P);
+}
