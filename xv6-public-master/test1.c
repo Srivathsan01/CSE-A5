@@ -4,11 +4,11 @@
 
 int main(int argc, char * argv[])
 {
-
-    for(int i=0 ; i<10000; i++)
-    {
-        printf(1," ");
-        printf(1,"\b");
-    }
-    exit();
+    int testvariable = 0;
+    for (volatile long long int i = 0; i < 1000000*atoi(argv[1]); i++)
+        {
+            testvariable++;
+        }
+        printf(1,"%d\n", atoi(argv[1]));
+        exit();
 }

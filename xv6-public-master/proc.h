@@ -53,6 +53,7 @@ struct proc {
   int etime;
   int rtime;
   int Prio;
+  int queuepriority;
 
 };
 

@@ -6,9 +6,10 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#define TIMERTICK 5
 
-int oldpriority=60;
-int newpriority=60;
+// int oldpriority=60;
+// int newpriority=60;
 
 struct
 {
@@ -95,7 +96,10 @@ found:
   p->pid = nextpid++;
   p->ctime = ticks;
   p->rtime = 0;
-  p->Prio = newpriority;
+
+  p->Prio = 60;
+  p->queuepriority = 0;
+  
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -343,7 +347,7 @@ int wait(void)
 //      via swtch back to the scheduler.
 void scheduler(void)
 {
-  struct proc *p;
+  struct proc *p=0;
   struct cpu *c = mycpu();
   c->proc = 0;
 
@@ -352,79 +356,107 @@ void scheduler(void)
     // Enable interrupts on this processor.
     sti();
 
-    int schedmode = 1;
+    // int schedmode=2;
 
     // Loop over process table looking for process to run.
-    acquire(&ptable.lock);
-    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    {
-      if(schedmode == 1)
-        {
-          if (p->state != RUNNABLE)
-          continue;
-        }
-      else if(schedmode == 2)
-        {
-          struct proc *min = 0;
-          if(p->state != RUNNABLE)
-            continue;
-          if(p->pid > 1)
+   
+        #ifdef DEFAULT
+          // cprintf("DEfault\n");
+          acquire(&ptable.lock);
+          for(p=ptable.proc ; p < &ptable.proc[NPROC];p++)
           {
-            if (min != 0)
-              {
-                if (min->ctime > p->ctime)
-                min = p;
-              }
-            else if(min == 0)
-              min = p;
-          
-          if(min !=0)
-           if(min->state == RUNNABLE)
-              p = min;
+            if (p->state != RUNNABLE)
+            continue;
+            c->proc = p;
+            switchuvm(p);
+            p->state = RUNNING;
+            swtch(&(c->scheduler), p->context);
+            switchkvm();
+            c->proc = 0;
           }
-        }
-      else if(schedmode == 3)
-        {
-              struct proc *highP = 0, *iterator = 0;
-
-              if(p->state != RUNNABLE)
-                continue;
-              // Choosing the process with highest Priority among all processes (among RUNNABLEs)
-              iterator = ptable.proc;
-              highP = p;
-
-            // Running a double for loop because while I am at the current process the user might change the priority of the older processes which I've already processed
-              for(; iterator < &ptable.proc[NPROC]; iterator++)
-              {
-                if(iterator->state == RUNNABLE)
-                {
-                  if (iterator->Prio < highP->Prio)
-                  highP = iterator;
-                }
-              }
-
-              if(highP != 0)
-                p = highP;
-        }
-
+          release(&ptable.lock);
+        #endif
+      // else if(schedmode == 2)
+        
+        #ifdef FCFS
+          acquire(&ptable.lock);
+          // cprintf("FCFS\n");
+          struct proc *min = 0;
+          struct proc *pengu = 0;
           
+          for(pengu = ptable.proc; pengu < &ptable.proc[NPROC]; pengu++)
+            {
+              if(pengu->state == RUNNABLE)
+              {
+                 if (min!=0)
+                 {
+                  if(pengu->ctime < min->ctime)
+                  min = pengu;
+                  }
+                else
+                min = pengu;
+              }
+            }
+            if(min!=0)
+            {
+              if(min->state == RUNNABLE)
+              p=min;
+              c->proc = p;
+              switchuvm(p);
+              p->state = RUNNING;
+              swtch(&(c->scheduler), p->context);
+              switchkvm();
+              c->proc = 0;
+            }
+            release(&ptable.lock);
+        #endif
+        
+        #ifdef PBS
+            acquire(&ptable.lock);
+            struct proc *maxpriority = 0;
+            struct proc *iterator = 0;
+          
+            for(iterator = ptable.proc; iterator < &ptable.proc[NPROC]; iterator++)
+            {
+              if(iterator->state == RUNNABLE)
+              {
+                if (maxpriority!=0)
+                  {
+                  if(maxpriority->Prio > iterator->Prio )
+                    maxpriority = iterator;
+                  }
+                else
+                  maxpriority = iterator;
+              }
+            }
+            if(maxpriority!=0)
+            {
+              if( maxpriority->state == RUNNABLE )
+                p=maxpriority;
+              c->proc=p;
+              switchuvm(p);
+              p->state = RUNNING;
+              swtch(&(c->scheduler), p->context);
+              switchkvm();
+            }
+            release(&ptable.lock);
+        #endif
+        
+        #ifdef MLFQ
+            
 
+        #endif
+        
+        
+        
+        
         // Switch to chosen process.  It is the process's job
         // to release ptable.lock and then reacquire it
         // before jumping back to us.
-        c->proc = p;
-        switchuvm(p);
-        p->state = RUNNING;
-
-        swtch(&(c->scheduler), p->context);
-        switchkvm();
-
         // Process is done running for now.
         // It should have changed its p->state before coming back.
-        c->proc = 0;
       
-    }
-      release(&ptable.lock);
+    
     
   }
 }
@@ -682,8 +714,8 @@ void scheduler(void)
 
   int setpriority(int P)
   {
-    oldpriority = newpriority;
-    int old = oldpriority;
-    newpriority = P;
-    return old;
+    int oldpriority =  myproc()->Prio;
+    myproc()->Prio = P;
+    // cprintf("New priority = %d and Old priority = %d\n", myproc()->Prio , oldpriority);
+    return oldpriority;
   }
