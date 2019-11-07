@@ -416,29 +416,55 @@ void scheduler(void)
             struct proc *maxpriority = 0;
             struct proc *iterator = 0;
           
+            int cteqp = 0;
             for(iterator = ptable.proc; iterator < &ptable.proc[NPROC]; iterator++)
             {
               if(iterator->state == RUNNABLE)
               {
                 if (maxpriority!=0)
                   {
-                  if(maxpriority->Prio > iterator->Prio )
+                    if(maxpriority->Prio == iterator->Prio)
+                    {
+                      cteqp++;
+                    }
+                    if(maxpriority->Prio > iterator->Prio )
                     maxpriority = iterator;
                   }
                 else
                   maxpriority = iterator;
               }
             }
+            
             if(maxpriority!=0)
             {
-              if( maxpriority->state == RUNNABLE )
-                p=maxpriority;
-              c->proc=p;
-              switchuvm(p);
-              p->state = RUNNING;
-              swtch(&(c->scheduler), p->context);
-              switchkvm();
+                if( cteqp > 1)
+                {
+                  for(iterator = ptable.proc; iterator < &ptable.proc[NPROC]; iterator++)
+                  {
+                    if(maxpriority->state == RUNNABLE && iterator->Prio == maxpriority->Prio)
+                    {
+                      if( maxpriority->state == RUNNABLE )
+                      p=maxpriority;
+                      c->proc=p;
+                      switchuvm(p);
+                      p->state = RUNNING;
+                      swtch(&(c->scheduler), p->context);
+                      switchkvm();
+                    }
+                  }
+                }
+                else
+                {
+                    if( maxpriority->state == RUNNABLE )
+                    p=maxpriority;
+                    c->proc=p;
+                    switchuvm(p);
+                    p->state = RUNNING;
+                    swtch(&(c->scheduler), p->context);
+                    switchkvm();
+                }
             }
+            
             release(&ptable.lock);
         #endif
         

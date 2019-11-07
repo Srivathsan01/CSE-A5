@@ -32,21 +32,35 @@ int main(int argc, char *argv[])
 
         else if(pid2!=0)
         {
-            #ifdef PBS
-            setpriority(90);
-            #endif
-            testfunc(40);
-            printf(1,"Proc2\n");
+            int pid3 = fork();
+            if(pid3 == 0)
+            {
+                #ifdef PBS
+                setpriority(50);
+                #endif
+                testfunc(40);
+                printf(1,"Proc2\n");
+            }
+       
+            else
+            {
+                #ifdef PBS
+                setpriority(40);
+                #endif
+                testfunc(40);
+                printf(1,"Proc3\n");
+            }
+            
         }
 
     }
     else if(pid !=0)
     {
            #ifdef PBS
-            setpriority(70);
+            setpriority(40);
             #endif
             testfunc(80);
-            printf(1,"Proc3\n");
+            printf(1,"Proc4\n");
 
     }
     exit();
