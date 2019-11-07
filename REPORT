@@ -1,0 +1,62 @@
+
+*******************************************  ASSIGNMENT - 5 OPERATING SYSTEMS ******************************************************
+
+        /////////////////////////////   TASK 1   /////////////////////////////////
+
+                                        WAITX SYSTEM CALL:
+
+
+1. In order to implement waitx system call i have added three integer values namely  ctime (Process starting time) , rtime (Process running time in total)
+    and etime (Process exit time).
+2. waitx is added as a system call by appropriately adding to usys.S syscall.h, sysproc.h syscall.c user.h etc.
+3. waitx function is implemented in proc.c file. It contains the wait function implementation.If the process becomes ZOMBIE state we basically update
+    wait time of the process as Wait= Ending time - Start time - running time.
+    And running time is calculated from rtime value of the process.
+4. In order to calculate rtime , we use ticks++ in trap.c which keeps on incrementing cpu time . We use myproc() to get currently running process and we update its 
+    rtime variable as rtime++;                                        
+5. After calculating wait time and running time of he process, we re-initialise the ctime , etime and rtime to 0.
+6. We return the wait and run time of process and print it in the argwaitx function which is called by USING "tester" command  implementing waitx syscall.
+
+
+
+                                        GETPINFO SYSTEM CALL
+1. For implementing this we define a structure called proc_stat which contains the given parameters which are specified in the question.
+2. We follow the same steps to implement getpinfo as a system call.
+3. After adding the system call 
+
+
+
+
+
+
+        ////////////////////////////////    TASK 2    ///////////////////////////////////
+
+                                        FCFS Scheduling
+
+1. For implementing FCFS I am using the ctime attribute of each process.Acquire the lock if ifdef statement is satisfied. Declare a structure proc called min to find MINIMUM START TIME.
+2. Iterate through all processes in the process table ,If the process is runnable, then check if the ctime is less than current minimum ctime.
+3. The default Scheduler is Round Robin
+4. Keep updating the minimum ctime.Finally if there exists some process with min ctime ,SCHEDULE IT.
+5. Release the ptable lock.
+
+                                        PBS Scheduling
+
+1. Declare a struct proc called maxp.To calculate current min priority.Declare an attibute called Prio for checking priority for each process.
+2. Iterate through all processes and keep updating  maximum priority.
+3. Keep a variable for counting the number of processes having same priority.
+4. If count > 1 , then iterate through all processes in the table and keep scheduling all processes which have equal priority which is equal to minimum priority.
+5. Else simply schedule the one process which has highest priority                                         
+6.  For implementing setpriority syscall we add it as a syscall.
+
+************  ASSUMPTION : IF the priority provided by user doesn't fall under the given range, I simply dont update the priority of the process. I RETURN -1. **************************
+
+
+                                        MLFQ Scheduling
+1. Declare 5 more attributes for each process queuepriority (CURRENT QUEUE IN WHICH THE PROCESS is present).
+2. For each queue a start time , running time and waittime are calculated. Also Declare 2 arrays which store Run times and wait times in each queue for a process.
+3. Define starvation times and Time quantums for each of the queues.
+4. Check for the corresponding conditions.I have written functions for checking and promoting the processes and demoting the processes.
+5. After all setting up work is done, check in the queues,
+6. For a given queue if it is the first 4 queues then implement FCFS scheduling from before
+7. If it is the last queue then implement Round Robin Scheduling.
+8. Update the qstarttime and qruntime everytime promotion or demotion happens.                               

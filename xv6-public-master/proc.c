@@ -7,6 +7,15 @@
 #include "proc.h"
 #include "spinlock.h"
 #define TIMERTICK 5
+#define STARVETIME1 20
+#define STARVETIME2 100
+#define STARVETIME3 200
+#define STARVETIME4 400
+
+#define TIMEQUANTUM0 TIMERTICK
+#define TIMEQUANTUM1 TIMERTICK*2
+#define TIMEQUANTUM2 TIMERTICK*4
+#define TIMEQUANTUM3 TIMERTICK*8
 
 // int oldpriority=60;
 // int newpriority=60;
@@ -24,6 +33,22 @@ extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
+
+void promotion(struct proc *p, int newq)
+{
+  p->queuepriority = newq;
+  p->qstarttime = ticks;
+  p->qruntime = 0;
+  cprintf("Promoted to %d",newq);
+}
+// void demotion(struct proc *p, int oldq , int newq)
+// {
+//   int oldque = oldq;
+//   p->queuepriority = newq;
+//   p->qstarttime = ticks;
+//   p->qruntime = 0;
+// }
+
 
 void pinit(void)
 {
@@ -99,6 +124,16 @@ found:
 
   p->Prio = 60;
   p->queuepriority = 0;
+  for(int qno=0; qno<5 ; qno++)
+  {
+    p->qrt[qno] = 0; 
+    p->qwt[qno] = 0; 
+  }
+
+  p->qruntime = 0 ;
+  p->qstarttime = ticks;
+  p->qwaittime = 0;
+
   
   release(&ptable.lock);
 
@@ -428,10 +463,16 @@ void scheduler(void)
                       cteqp++;
                     }
                     if(maxpriority->Prio > iterator->Prio )
-                    maxpriority = iterator;
+                      {
+                        maxpriority = iterator;
+                        cteqp = 0;
+                      }
                   }
                 else
-                  maxpriority = iterator;
+                  {
+                    maxpriority = iterator;
+                    cteqp++;
+                  }
               }
             }
             
@@ -443,8 +484,8 @@ void scheduler(void)
                   {
                     if(maxpriority->state == RUNNABLE && iterator->Prio == maxpriority->Prio)
                     {
-                      if( maxpriority->state == RUNNABLE )
-                      p=maxpriority;
+                      if( iterator->state == RUNNABLE )
+                        p=iterator;
                       c->proc=p;
                       switchuvm(p);
                       p->state = RUNNING;
@@ -456,7 +497,7 @@ void scheduler(void)
                 else
                 {
                     if( maxpriority->state == RUNNABLE )
-                    p=maxpriority;
+                      p=maxpriority;
                     c->proc=p;
                     switchuvm(p);
                     p->state = RUNNING;
@@ -469,7 +510,128 @@ void scheduler(void)
         #endif
         
         #ifdef MLFQ
+            acquire(&ptable.lock);
+            struct proc *iter = 0;
+            for( iter = ptable.proc ; iter < &ptable.proc[NPROC]; iter++ )
+            {
+              if(iter->state == RUNNABLE)
+              {
+                //  SOLVING STARVATION
+                iter->qwaittime = ticks - iter->qstarttime - iter->qruntime;
+                if( iter->queuepriority == 1 && iter->qwaittime > STARVETIME1 )
+                {
+                  promotion(iter,0);
+                }
+                if( iter->queuepriority == 2 && iter->qwaittime > STARVETIME2 )
+                {
+                  promotion(iter,1);
+                } 
+                if( iter->queuepriority == 3 && iter->qwaittime > STARVETIME3 )
+                {
+                  promotion(iter,2);
+                } 
+                if( iter->queuepriority == 4 && iter->qwaittime > STARVETIME4 )
+                {
+                  promotion(iter,3);
+                }                 
+              }
+            }
+            release(&ptable.lock);
+
+
+            acquire(&ptable.lock);
+            for( iter = ptable.proc ; iter < &ptable.proc[NPROC]; iter++ )
+            {
+              //  SOLVING PRE-EMPTION
+              if( iter->state == RUNNING)
+              {
+                if( iter->queuepriority == 0 && iter->qruntime > TIMEQUANTUM0 )
+                {
+                  iter->queuepriority = 1;
+                  iter->qstarttime = ticks;
+                  iter->qruntime = 0;
+                  cprintf("Demoted to 1\n");
+                }
+                if( iter->queuepriority == 1 && iter->qruntime > TIMEQUANTUM1 )
+                {
+                  iter->queuepriority = 2;
+                  iter->qstarttime = ticks;
+                  cprintf("Demoted to 2\n");
+                  iter->qruntime = 0;
+                }
+                if( iter->queuepriority == 2 && iter->qruntime > TIMEQUANTUM2 )
+                {
+                  iter->queuepriority = 3;
+                  iter->qstarttime = ticks;
+                  cprintf("Demoted to 3\n");
+                  iter->qruntime = 0;
+                }
+                if( iter->queuepriority == 3 && iter->qruntime > TIMEQUANTUM3 )
+                {
+                  iter->queuepriority = 4;
+                  iter->qstarttime = ticks;
+                  iter->qruntime = 0;
+                }
+              }
+            }
+            release(&ptable.lock);
             
+
+            for( int qno = 0 ; qno < 5; qno++ )
+            {
+              acquire(&ptable.lock);
+              if( qno < 4 )
+              {
+                // First 4 queues
+                 struct proc *min = 0;
+                 for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+                  {
+                    if(p->state == RUNNABLE && p->queuepriority==qno)
+                    {
+                      if (min!=0)
+                      {
+                        if(p->ctime < min->ctime)
+                        min = p;
+                      }
+                      else
+                        min = p;
+                    }
+                  }
+                  if(min!=0)
+                  {
+                    if(min->state==RUNNABLE)
+                      p = min;
+                    c->proc = p;
+                    switchuvm(p);
+                    p->state = RUNNING;
+                    swtch(&(c->scheduler), p->context);
+                    switchkvm();
+                    // Process is done running for now.
+                    // It should have changed its p->state before coming back.
+                    c->proc = 0;
+                  }
+              }
+
+              else
+              {//Last queue
+                for(p=ptable.proc ; p < &ptable.proc[NPROC];p++)
+                {
+                  if (p->state != RUNNABLE || p->queuepriority != qno)
+                  continue;
+                  c->proc = p;
+                  switchuvm(p);
+                  p->state = RUNNING;
+                  swtch(&(c->scheduler), p->context);
+                  switchkvm();
+                  c->proc = 0;
+                  //Suimple Round RObin
+                }
+              }
+  
+              release(&ptable.lock);
+
+            }
+
 
         #endif
         
@@ -611,6 +773,7 @@ void scheduler(void)
   // Kill the process with the given pid.
   // Process won't exit until it returns
   // to user space (see trap in trap.c).
+
   int kill(int pid)
   {
     struct proc *p;
@@ -740,8 +903,24 @@ void scheduler(void)
 
   int setpriority(int P)
   {
-    int oldpriority =  myproc()->Prio;
-    myproc()->Prio = P;
-    // cprintf("New priority = %d and Old priority = %d\n", myproc()->Prio , oldpriority);
-    return oldpriority;
+   
+    if(P < 0 || P > 100)
+    {
+      // IF the new priority is not within the given limits [0,100] then DO NOT UPDATE THE PRIORITY
+      return 1;
+    }
+    
+    else
+    {
+      int oldpriority =  myproc()->Prio;
+      myproc()->Prio = P;
+      // cprintf("New priority = %d and Old priority = %d\n", myproc()->Prio , oldpriority);
+      return oldpriority;
+    }
+  }
+
+  int getpinfo(struct proc_stat *P,int pid)
+  {
+    cprintf("HEllo %d\n",pid);
+    return 1;
   }

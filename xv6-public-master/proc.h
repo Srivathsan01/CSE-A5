@@ -49,12 +49,24 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  int ctime;
-  int etime;
-  int rtime;
-  int Prio;
-  int queuepriority;
+  int ctime;                   // Process starting time
+  int etime;                   // Process Exit time
+  int rtime;                   // Process Total Run time
+  int Prio;                    // Priority of process for PBS
+  int queuepriority;           // Current logical queue in which the process is present in
+  int qrt[5];                  // Running time for the process in each queue
+  int qwt[5];                  // Waiting time for the process in each queue
+  int qruntime;                // Running time of process in current queue
+  int qwaittime;               // Wait time of process in current queue
+  int qstarttime;              // Start time when the process entered the current queue
+};
 
+struct proc_stat{
+  int pid;
+  float runtime;
+  int num_run;
+  int current_queue;
+  int ticks[5];
 };
 
 // Process memory is laid out contiguously, low addresses first:
